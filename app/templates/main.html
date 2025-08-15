@@ -20,44 +20,58 @@
       <div><a class="small" href="/change_folder">Change folder</a></div>
     </div>
 
-    {% for folder, files in tree.items() %} {% if folder %}
-    <div class="folder">{{ folder }}</div>
-    {% endif %} {% for f in files %} {% set rel_path = (folder + '/' + f) if
-    folder else f %}
+    <div class="topbar">
+      <span>Files</span>
+      <span>DONE</span>
+    </div>
+
+    {% for folder, files in tree.items() %}
+    {% if folder %}<div class="folder">{{ folder }}</div>{% endif %}
+    {% for f in files %}
+    {% set rel_path = ((folder + '/' + f) if folder else f).replace('\\', '/') %}
+    {% set ext = f.split('.')[-1].lower() %}
+    {% set show_read = ext in ['pdf','mp4','mp3','mov','avi','wav','mkv'] %}
+
     <div class="file">
       <a class="fileName" href="/view?path={{ rel_path }}" target="viewer">{{ f }}</a>
-      <input type="checkbox" class="read-checkbox" data-folder="{{ BASE_DIR|tojson }}" data-file="{{ rel_path|tojson }}"
-        name="read_{{ loop.index0 }}" {% if rel_path in read_files %}checked{% endif %} />
 
+      {% if show_read %}
+      <input type="checkbox" class="read-checkbox" data-folder="{{ BASE_DIR }}" data-file="{{ rel_path }}" {% if
+        rel_path in read_files %}checked{% endif %}>
+      {% endif %}
     </div>
-    {% endfor %} {% endfor %}
+    {% endfor %}
+    {% endfor %}
+
   </div>
 
   <div id="content">
     <iframe name="viewer" src="{{ url_for('main_bp.view', path=last_file) if last_file else '' }}"></iframe>
   </div>
+
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      document.querySelectorAll(".read-checkbox").forEach((checkbox) => {
-        checkbox.addEventListener("change", (e) => {
-          const folder = e.target.dataset.folder;
-          const file = e.target.dataset.file;
-          const read = e.target.checked;
-
-          fetch("/mark_read", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ folder, file, read }),
-          })
-            .then((r) => r.json())
-            .then((data) => {
-              if (data.success) console.log("Updated");
-              else console.error("Failed");
+      document.querySelectorAll(".read-checkbox").forEach(cb => {
+        cb.addEventListener("change", async () => {
+          const folder = cb.dataset.folder;
+          const file = cb.dataset.file;
+          try {
+            const res = await fetch('/mark_read', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ folder, file, read: cb.checked })
             });
+            const data = await res.json();
+            if (!data.success) console.error("Failed to update state");
+          } catch (e) {
+            console.error("Error:", e);
+          }
         });
       });
     });
   </script>
+
+
 </body>
 
 </html>

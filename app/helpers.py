@@ -20,7 +20,6 @@ BLOCK_BINARY_EXTS = {
     ".torrent"
 }
 
-
 def get_mime_type(path: str) -> str:
     mime, _ = mimetypes.guess_type(path)
     return mime or ""
@@ -95,8 +94,9 @@ def build_tree(base_dir, sort_mode="alpha"):
     return tree
 
 # --------- Reading tracker -----------
+
 def mark_file_read(folder: str, file_path: str, read: bool):
-    folder_key = os.path.abspath(folder)
+    folder_key = os.path.abspath(folder).replace("\\", "/")
     file_path = file_path.replace("\\", "/")
     cfg = load_config()
     read_files = set(cfg.get("read_files", {}).get(folder_key, []))
@@ -104,9 +104,12 @@ def mark_file_read(folder: str, file_path: str, read: bool):
         read_files.add(file_path)
     else:
         read_files.discard(file_path)
-    cfg.setdefault("read_files", {})[folder_key] = sorted(read_files)
+    cfg.setdefault("read_files", {})[folder_key] = sorted(read_files) 
     save_config(cfg)
 
+
 def get_read_files(folder: str):
+    folder_key = os.path.abspath(folder).replace("\\", "/")   # normalize folder
     cfg = load_config()
-    return set(cfg.get("read_files", {}).get(os.path.abspath(folder), []))
+    stored = cfg.get("read_files", {}).get(folder_key, [])
+    return set(p.replace("\\", "/") for p in stored)          # normalize stored file paths

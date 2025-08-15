@@ -155,12 +155,12 @@ console.log("folder file checkbox:", {folder: folder, file: file, read: checkbox
 <div id="sidebar">
   <div class="topbar">
     <div>
-      Sort:
+      Sort
       {% if sort_mode == "alpha" %}<b>Alphabetical</b> | <a href="/?sort=smart">Smart</a>
       {% else %}<a href="/?sort=alpha">Alphabetical</a> | <b>Smart</b>
       {% endif %}
     </div>
-    <div><a class="small" href="/change_folder">Change folder</a></div>
+    <div><a class="small" href="/change_folder">Change folder--</a></div>
   </div>
 
   {% for folder, files in tree.items() %}

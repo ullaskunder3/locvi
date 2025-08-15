@@ -1,5 +1,3 @@
 {
-    "[html]": {
-        "javascript.validate.enable": false
-    }
+    "htmlhint.enable": false
 }
