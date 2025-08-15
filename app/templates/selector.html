@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>LocVi</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='selector.css') }}">
+</head>
+
+<body class="container">
+  <div id="box">
+    <h3>Select the folder containing your files</h3>
+    {% if recent_folders %}
+    <p class="small">Recent folders:</p>
+    <ul>
+      {% for f in recent_folders %}
+      <li><a href="/use_folder?folder={{ f|urlencode }}">{{ f }}</a></li>
+      {% endfor %}
+    </ul>
+    <hr>
+    {% endif %}
+    <form action="/set_folder" method="post">
+      <input type="text" name="folder" placeholder="Enter full path" style="width:100%" required>
+      <button type="submit">Open</button>
+    </form>
+    <p class="small">Tip: copy & paste the path from your file explorer.</p>
+  </div>
+</body>
+
+</html>

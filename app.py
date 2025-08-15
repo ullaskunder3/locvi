@@ -3,7 +3,7 @@ import re
 import json
 import mimetypes
 from datetime import datetime
-from flask import Flask, send_file, render_template_string, request, abort, redirect, url_for
+from flask import Flask, send_file, render_template_string, request, abort, redirect, url_for, jsonify
 from appdirs import user_config_dir
 
 PORT = 8080
@@ -31,9 +31,9 @@ def load_config():
 def save_config(cfg: dict):
     os.makedirs(CONFIG_DIR, exist_ok=True)
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f)
+        json.dump(cfg, f, indent=2)
 
-# NEW — recent folders helpers
+# ---------- Recent folders ----------
 def get_recent_folders():
     cfg = load_config()
     folders = cfg.get("recent_folders", [])
@@ -46,9 +46,10 @@ def add_recent_folder(path: str):
     if path in folders:
         folders.remove(path)
     folders.insert(0, path)
-    cfg["recent_folders"] = folders[:3]  # keep top 3
+    cfg["recent_folders"] = folders[:3]
     save_config(cfg)
 
+# ---------- Last opened files ----------
 def set_last_open_file(folder: str, file_path: str):
     cfg = load_config()
     last_files = cfg.get("last_open_file", {})
@@ -59,6 +60,23 @@ def set_last_open_file(folder: str, file_path: str):
 def get_last_open_file(folder: str):
     cfg = load_config()
     return cfg.get("last_open_file", {}).get(os.path.abspath(folder))
+
+# ---------- Read-tracking ----------
+def mark_file_read(folder: str, file_path: str, read: bool):
+    folder_key = os.path.abspath(folder)
+    file_path = file_path.replace("\\", "/")
+    cfg = load_config()
+    read_files = set(cfg.get("read_files", {}).get(folder_key, []))
+    if read:
+        read_files.add(file_path)
+    else:
+        read_files.discard(file_path)
+    cfg.setdefault("read_files", {})[folder_key] = sorted(read_files)
+    save_config(cfg)
+
+def get_read_files(folder: str):
+    cfg = load_config()
+    return set(cfg.get("read_files", {}).get(os.path.abspath(folder), []))
 
 # ---------- Templates ----------
 FOLDER_PICKER = """
@@ -112,24 +130,49 @@ a:hover { background:#ddd; }
 .folder { font-weight:bold; margin-top:8px; }
 .topbar { padding:6px 8px; background:#ddd; font-size:14px; display:flex; gap:10px; align-items:center; justify-content:space-between; }
 .small { font-size:12px; color:#555; }
+.read-checkbox { margin-left:6px; }
 </style>
+<script>
+function toggleRead(folder, file, checkbox) {
+console.log("folder file checkbox:", {folder: folder, file: file, read: checkbox.checked})
+    fetch('/mark_read', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder: folder, file: file, read: checkbox.checked})
+    }).then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('State updated successfully');
+        } else {
+            console.error('Failed to update state');
+        }
+    });
+}
+</script>
+
 </head>
 <body>
 <div id="sidebar">
   <div class="topbar">
     <div>
-      Sort:
+      Sort
       {% if sort_mode == "alpha" %}<b>Alphabetical</b> | <a href="/?sort=smart">Smart</a>
       {% else %}<a href="/?sort=alpha">Alphabetical</a> | <b>Smart</b>
       {% endif %}
     </div>
-    <div><a class="small" href="/change_folder">Change folder</a></div>
+    <div><a class="small" href="/change_folder">Change folder--</a></div>
   </div>
 
   {% for folder, files in tree.items() %}
     {% if folder %}<div class="folder">{{ folder }}</div>{% endif %}
     {% for f in files %}
-      <a href="/view?path={{ (folder + '/' + f) if folder else f }}" target="viewer">{{ f }}</a>
+      {% set rel_path = (folder + '/' + f) if folder else f %}
+      <div>
+        <a href="/view?path={{ rel_path }}" target="viewer">{{ f }}</a>
+<input type="checkbox" class="read-checkbox"
+       onchange='toggleRead({{ BASE_DIR|tojson }}, {{ rel_path|tojson }}, this)'
+       {% if rel_path in read_files %}checked{% endif %} />
+      </div>
     {% endfor %}
   {% endfor %}
 </div>
@@ -174,17 +217,26 @@ def index():
     global BASE_DIR
     if not BASE_DIR:
         return render_template_string(FOLDER_PICKER, recent_folders=get_recent_folders())
-
     sort_mode = request.args.get("sort", "alpha")
     last_file = get_last_open_file(BASE_DIR)
-
-    # Pass last_file to the template so iframe loads it initially
+    read_files = get_read_files(BASE_DIR)
     return render_template_string(
         TEMPLATE,
         tree=build_tree(sort_mode),
         sort_mode=sort_mode,
-        last_file=last_file
+        last_file=last_file,
+        BASE_DIR=BASE_DIR,
+        read_files=read_files
     )
+
+@app.route("/mark_read", methods=["POST"])
+def mark_read_route():
+    data = request.get_json()
+    folder = data.get("folder")
+    file_path = data.get("file")
+    read = data.get("read", False)
+    mark_file_read(folder, file_path, read)
+    return jsonify(success=True)
 
 @app.route("/use_folder")
 def use_folder():
@@ -215,28 +267,22 @@ def view():
     global BASE_DIR
     if not BASE_DIR:
         return redirect(url_for("index"))
-
     path = request.args.get("path", "")
     abs_path = os.path.abspath(os.path.join(BASE_DIR, path))
     if not abs_path.startswith(BASE_DIR):
         abort(400, "Invalid path")
     if not os.path.exists(abs_path):
         abort(404, "File not found")
-
-    set_last_open_file(BASE_DIR, path)  # NEW — store last opened file
-
+    set_last_open_file(BASE_DIR, path)
     if os.path.getsize(abs_path) == 0:
         return "<div style='font-family:sans-serif;padding:20px;color:#666;'>This file is empty.</div>"
-
     ext = os.path.splitext(abs_path)[1].lower()
     if ext in BLOCK_BINARY_EXTS:
         return "<div style='padding:20px;color:red;font-family:sans-serif;'>⚠ This file type cannot be opened here. Download instead.</div>"
-
     if ext in TEXT_SAFE_EXTS:
         with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         return f"<pre style='padding:10px;background:#111;color:#eee;overflow:auto'>{content}</pre>"
-
     mime, _ = mimetypes.guess_type(abs_path)
     if mime and mime.startswith("text/html"):
         with open(abs_path, "r", encoding="utf-8", errors="ignore") as f:
