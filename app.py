@@ -1,44 +1,101 @@
 import os
 import re
+import json
 import mimetypes
 from datetime import datetime
 from flask import Flask, send_file, render_template_string, request, abort, redirect, url_for
-from datetime import datetime
+from appdirs import user_config_dir
 
 PORT = 8080
 BASE_DIR = None
+
 TEXT_SAFE_EXTS = {".sh", ".bat", ".cmd", ".ps1", ".py", ".bar", ".torrent"}
 BLOCK_BINARY_EXTS = {".exe", ".dll", ".zip", ".rar", ".tar", ".gz", ".7z"}
 
+APP_NAME = "LocVi"
+CONFIG_DIR = user_config_dir(APP_NAME)
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+
 app = Flask(__name__)
 
-# HTML for folder picker
+# ---------- Config helpers ----------
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f) or {}
+        except Exception:
+            return {}
+    return {}
+
+def save_config(cfg: dict):
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(cfg, f)
+
+# NEW — recent folders helpers
+def get_recent_folders():
+    cfg = load_config()
+    folders = cfg.get("recent_folders", [])
+    return [f for f in folders if os.path.isdir(f)]
+
+def add_recent_folder(path: str):
+    path = os.path.abspath(path)
+    cfg = load_config()
+    folders = cfg.get("recent_folders", [])
+    if path in folders:
+        folders.remove(path)
+    folders.insert(0, path)
+    cfg["recent_folders"] = folders[:3]  # keep top 3
+    save_config(cfg)
+
+def set_last_open_file(folder: str, file_path: str):
+    cfg = load_config()
+    last_files = cfg.get("last_open_file", {})
+    last_files[os.path.abspath(folder)] = file_path
+    cfg["last_open_file"] = last_files
+    save_config(cfg)
+
+def get_last_open_file(folder: str):
+    cfg = load_config()
+    return cfg.get("last_open_file", {}).get(os.path.abspath(folder))
+
+# ---------- Templates ----------
 FOLDER_PICKER = """
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>Select Course Folder</title>
+<title>Select Folder</title>
 <style>
 body { font-family: Arial, sans-serif; background:#f4f4f4; display:flex; align-items:center; justify-content:center; height:100vh; }
-#box { background:white; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.2); }
+#box { background:white; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.2); width: 420px; }
+.small { color:#666; font-size:12px; }
 </style>
 </head>
 <body>
 <div id="box">
-    <h3>Select the folder containing your course files</h3>
-    <form action="/set_folder" method="post">
-        <input type="text" name="folder" placeholder="Enter full path" style="width:300px" required>
-        <br><br>
-        <button type="submit">Open</button>
-    </form>
-    <p style="color:#666;font-size:12px;">Tip: Copy & paste the path from your file explorer.</p>
+  <h3>Select the folder containing your files</h3>
+  {% if recent_folders %}
+    <p class="small">Recent folders:</p>
+    <ul>
+      {% for f in recent_folders %}
+        <li><a href="/use_folder?folder={{ f|urlencode }}">{{ f }}</a></li>
+      {% endfor %}
+    </ul>
+    <hr>
+  {% endif %}
+  <form action="/set_folder" method="post">
+    <input type="text" name="folder" placeholder="Enter full path" style="width:100%" required>
+    <br><br>
+    <button type="submit">Open</button>
+  </form>
+  <p class="small">Tip: copy & paste the path from your file explorer.</p>
 </div>
 </body>
 </html>
 """
 
-# Course browser template
 TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -47,55 +104,54 @@ TEMPLATE = """
 <title>Course Browser</title>
 <style>
 body { margin:0; font-family: Arial, sans-serif; display:flex; height:100vh; }
-#sidebar { width:300px; background:#f4f4f4; overflow:auto; padding:10px; border-right:1px solid #ccc; }
+#sidebar { width:320px; background:#f4f4f4; overflow:auto; padding:10px; border-right:1px solid #ccc; }
 #content { flex:1; padding:0; display:flex; flex-direction:column; }
 iframe, video { flex:1; border:none; }
 a { text-decoration:none; display:block; padding:4px; color:#333; }
 a:hover { background:#ddd; }
 .folder { font-weight:bold; margin-top:8px; }
+.topbar { padding:6px 8px; background:#ddd; font-size:14px; display:flex; gap:10px; align-items:center; justify-content:space-between; }
+.small { font-size:12px; color:#555; }
 </style>
 </head>
 <body>
 <div id="sidebar">
-    <div style="padding:5px; background:#ddd; font-size:14px; display: flex; align-items: center">
-        Sort:
-        {% if sort_mode == "alpha" %}
-            <b>Alphabetical</b> | <a href="/?sort=smart">Smart</a>
-        {% else %}
-            <a href="/?sort=alpha">Alphabetical</a> | <b>Smart</b>
-        {% endif %}
+  <div class="topbar">
+    <div>
+      Sort:
+      {% if sort_mode == "alpha" %}<b>Alphabetical</b> | <a href="/?sort=smart">Smart</a>
+      {% else %}<a href="/?sort=alpha">Alphabetical</a> | <b>Smart</b>
+      {% endif %}
     </div>
-    {% for folder, files in tree.items() %}
-        {% if folder %}<div class="folder">{{ folder }}</div>{% endif %}
-        {% for f in files %}
-            <a href="/view?path={{ (folder + '/' + f) if folder else f }}" target="viewer">{{ f }}</a>
-        {% endfor %}
+    <div><a class="small" href="/change_folder">Change folder</a></div>
+  </div>
+
+  {% for folder, files in tree.items() %}
+    {% if folder %}<div class="folder">{{ folder }}</div>{% endif %}
+    {% for f in files %}
+      <a href="/view?path={{ (folder + '/' + f) if folder else f }}" target="viewer">{{ f }}</a>
     {% endfor %}
+  {% endfor %}
 </div>
+
 <div id="content">
-    <iframe name="viewer"></iframe>
+<iframe name="viewer" src="{{ url_for('view', path=last_file) if last_file else '' }}"></iframe>
 </div>
 </body>
 </html>
 """
 
-
-def sort_key(name):
-    # Try to extract leading number
+# ---------- Sorting ----------
+def sort_key(name: str):
     m = re.match(r'^(\d+)', name)
     if m:
         return (0, int(m.group(1)), name.lower())
-    
-    # Try to parse as date YYYY-MM-DD
     try:
         date_obj = datetime.strptime(name[:10], "%Y-%m-%d")
         return (1, date_obj, name.lower())
-    except:
+    except Exception:
         pass
-    
-    # Fallback to string
     return (2, name.lower())
-
 
 def build_tree(sort_mode="alpha"):
     tree = {}
@@ -112,43 +168,70 @@ def build_tree(sort_mode="alpha"):
         tree[rel_root] = files
     return tree
 
+# ---------- Routes ----------
 @app.route("/")
 def index():
+    global BASE_DIR
     if not BASE_DIR:
-        return FOLDER_PICKER
+        return render_template_string(FOLDER_PICKER, recent_folders=get_recent_folders())
+
     sort_mode = request.args.get("sort", "alpha")
-    return render_template_string(TEMPLATE, tree=build_tree(sort_mode), sort_mode=sort_mode)
+    last_file = get_last_open_file(BASE_DIR)
+
+    # Pass last_file to the template so iframe loads it initially
+    return render_template_string(
+        TEMPLATE,
+        tree=build_tree(sort_mode),
+        sort_mode=sort_mode,
+        last_file=last_file
+    )
+
+@app.route("/use_folder")
+def use_folder():
+    global BASE_DIR
+    folder = request.args.get("folder", "")
+    if os.path.isdir(folder):
+        BASE_DIR = os.path.abspath(folder)
+        add_recent_folder(BASE_DIR)
+        return redirect(url_for("index"))
+    return redirect(url_for("index"))
+
+@app.route("/change_folder")
+def change_folder():
+    return render_template_string(FOLDER_PICKER, recent_folders=get_recent_folders())
 
 @app.route("/set_folder", methods=["POST"])
 def set_folder():
     global BASE_DIR
-    folder = request.form.get("folder", "").strip()
+    folder = (request.form.get("folder") or "").strip()
     if not os.path.isdir(folder):
-        return "<h3>Invalid folder. <a href='/'>Try again</a></h3>"
+        return "<h3>Invalid folder. <a href='/change_folder'>Try again</a></h3>"
     BASE_DIR = os.path.abspath(folder)
+    add_recent_folder(BASE_DIR)
     return redirect(url_for("index"))
 
 @app.route("/view")
 def view():
+    global BASE_DIR
+    if not BASE_DIR:
+        return redirect(url_for("index"))
+
     path = request.args.get("path", "")
     abs_path = os.path.abspath(os.path.join(BASE_DIR, path))
-    
-    # safty checking
     if not abs_path.startswith(BASE_DIR):
         abort(400, "Invalid path")
     if not os.path.exists(abs_path):
         abort(404, "File not found")
-    
+
+    set_last_open_file(BASE_DIR, path)  # NEW — store last opened file
+
     if os.path.getsize(abs_path) == 0:
         return "<div style='font-family:sans-serif;padding:20px;color:#666;'>This file is empty.</div>"
 
     ext = os.path.splitext(abs_path)[1].lower()
-
-        # If it's a binary file we don't want to inline
     if ext in BLOCK_BINARY_EXTS:
         return "<div style='padding:20px;color:red;font-family:sans-serif;'>⚠ This file type cannot be opened here. Download instead.</div>"
 
-    # If it's a safe-text file we want to show as plain text
     if ext in TEXT_SAFE_EXTS:
         with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
@@ -158,7 +241,7 @@ def view():
     if mime and mime.startswith("text/html"):
         with open(abs_path, "r", encoding="utf-8", errors="ignore") as f:
             html_content = f.read()
-        match = re.search(r'window\.location\s*=\s*"([^"]+)"', html_content)
+        match = re.search(r'window\\.location\\s*=\\s*"([^"]+)"', html_content)
         if match:
             redirect_url = match.group(1)
             return f"""
@@ -177,6 +260,9 @@ def view():
 
 @app.route("/file")
 def serve_file():
+    global BASE_DIR
+    if not BASE_DIR:
+        return redirect(url_for("index"))
     path = request.args.get("path", "")
     abs_path = os.path.abspath(os.path.join(BASE_DIR, path))
     if not abs_path.startswith(BASE_DIR):
