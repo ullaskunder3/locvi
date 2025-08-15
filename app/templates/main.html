@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>LocVi</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+</head>
+
+<body>
+  <div id="sidebar">
+    <div class="topbar">
+      <div class="flex">
+        Sort: {% if sort_mode == "alpha" %}<b>Alphabetical</b> |
+        <a href="/?sort=smart">Smart</a> {% else %}<a href="/?sort=alpha">Alphabetical</a>
+        | <b>Smart</b>
+        {% endif %}
+      </div>
+      <div><a class="small" href="/change_folder">Change folder</a></div>
+    </div>
+
+    {% for folder, files in tree.items() %} {% if folder %}
+    <div class="folder">{{ folder }}</div>
+    {% endif %} {% for f in files %} {% set rel_path = (folder + '/' + f) if
+    folder else f %}
+    <div class="file">
+      <a class="fileName" href="/view?path={{ rel_path }}" target="viewer">{{ f }}</a>
+      <input type="checkbox" class="read-checkbox" data-folder="{{ BASE_DIR|tojson }}" data-file="{{ rel_path|tojson }}"
+        name="read_{{ loop.index0 }}" {% if rel_path in read_files %}checked{% endif %} />
+
+    </div>
+    {% endfor %} {% endfor %}
+  </div>
+
+  <div id="content">
+    <iframe name="viewer" src="{{ url_for('main_bp.view', path=last_file) if last_file else '' }}"></iframe>
+  </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll(".read-checkbox").forEach((checkbox) => {
+        checkbox.addEventListener("change", (e) => {
+          const folder = e.target.dataset.folder;
+          const file = e.target.dataset.file;
+          const read = e.target.checked;
+
+          fetch("/mark_read", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folder, file, read }),
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.success) console.log("Updated");
+              else console.error("Failed");
+            });
+        });
+      });
+    });
+  </script>
+</body>
+
+</html>

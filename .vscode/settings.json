@@ -1,0 +1,5 @@
+{
+    "[html]": {
+        "javascript.validate.enable": false
+    }
+}

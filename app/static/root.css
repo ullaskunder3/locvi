@@ -1,0 +1,13 @@
+*, *::before, *::after{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    text-decoration: none;
+}
+html, body{
+    height: 100vh;
+    width: 100%;
+    max-width: 100%;
+    font-family: Arial, sans-serif;
+    display: flex;
+}
