@@ -1,9 +1,14 @@
 import os
+import re
 import mimetypes
+from datetime import datetime
 from flask import Flask, send_file, render_template_string, request, abort, redirect, url_for
+from datetime import datetime
 
 PORT = 8080
 BASE_DIR = None
+TEXT_SAFE_EXTS = {".sh", ".bat", ".cmd", ".ps1", ".py", ".bar", ".torrent"}
+BLOCK_BINARY_EXTS = {".exe", ".dll", ".zip", ".rar", ".tar", ".gz", ".7z"}
 
 app = Flask(__name__)
 
@@ -52,6 +57,14 @@ a:hover { background:#ddd; }
 </head>
 <body>
 <div id="sidebar">
+    <div style="padding:5px; background:#ddd; font-size:14px; display: flex; align-items: center">
+        Sort:
+        {% if sort_mode == "alpha" %}
+            <b>Alphabetical</b> | <a href="/?sort=smart">Smart</a>
+        {% else %}
+            <a href="/?sort=alpha">Alphabetical</a> | <b>Smart</b>
+        {% endif %}
+    </div>
     {% for folder, files in tree.items() %}
         {% if folder %}<div class="folder">{{ folder }}</div>{% endif %}
         {% for f in files %}
@@ -66,11 +79,33 @@ a:hover { background:#ddd; }
 </html>
 """
 
-def build_tree():
+
+def sort_key(name):
+    # Try to extract leading number
+    m = re.match(r'^(\d+)', name)
+    if m:
+        return (0, int(m.group(1)), name.lower())
+    
+    # Try to parse as date YYYY-MM-DD
+    try:
+        date_obj = datetime.strptime(name[:10], "%Y-%m-%d")
+        return (1, date_obj, name.lower())
+    except:
+        pass
+    
+    # Fallback to string
+    return (2, name.lower())
+
+
+def build_tree(sort_mode="alpha"):
     tree = {}
     for root, dirs, files in os.walk(BASE_DIR):
-        dirs.sort()
-        files.sort()
+        if sort_mode == "smart":
+            dirs.sort(key=sort_key)
+            files.sort(key=sort_key)
+        else:
+            dirs.sort()
+            files.sort()
         rel_root = os.path.relpath(root, BASE_DIR)
         if rel_root == ".":
             rel_root = ""
@@ -81,7 +116,8 @@ def build_tree():
 def index():
     if not BASE_DIR:
         return FOLDER_PICKER
-    return render_template_string(TEMPLATE, tree=build_tree())
+    sort_mode = request.args.get("sort", "alpha")
+    return render_template_string(TEMPLATE, tree=build_tree(sort_mode), sort_mode=sort_mode)
 
 @app.route("/set_folder", methods=["POST"])
 def set_folder():
@@ -96,13 +132,29 @@ def set_folder():
 def view():
     path = request.args.get("path", "")
     abs_path = os.path.abspath(os.path.join(BASE_DIR, path))
+    
+    # safty checking
     if not abs_path.startswith(BASE_DIR):
         abort(400, "Invalid path")
     if not os.path.exists(abs_path):
         abort(404, "File not found")
+    
+    if os.path.getsize(abs_path) == 0:
+        return "<div style='font-family:sans-serif;padding:20px;color:#666;'>This file is empty.</div>"
+
+    ext = os.path.splitext(abs_path)[1].lower()
+
+        # If it's a binary file we don't want to inline
+    if ext in BLOCK_BINARY_EXTS:
+        return "<div style='padding:20px;color:red;font-family:sans-serif;'>⚠ This file type cannot be opened here. Download instead.</div>"
+
+    # If it's a safe-text file we want to show as plain text
+    if ext in TEXT_SAFE_EXTS:
+        with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+        return f"<pre style='padding:10px;background:#111;color:#eee;overflow:auto'>{content}</pre>"
 
     mime, _ = mimetypes.guess_type(abs_path)
-    import re
     if mime and mime.startswith("text/html"):
         with open(abs_path, "r", encoding="utf-8", errors="ignore") as f:
             html_content = f.read()
