@@ -6,6 +6,20 @@
   <title>LocVi</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='selector.css') }}">
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#111111">
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register("/sw.js")
+          .then(reg => console.log("ServiceWorker registered:", reg.scope))
+          .catch(err => console.log("ServiceWorker registration failed:", err));
+      });
+    }
+  </script>
+
 </head>
 
 <body class="container">
