@@ -7,6 +7,8 @@ Might add more features someday… maybe, or not 🤷‍♂️.
 
 ### ⚠️ Heads-Up on Cloud Deployment
 
+> ⚡ Working on PWA functionality — currently in `test` branch 🚧 `pwa/locvi`
+
 Locally, when you enter something like `C:\Users\ullas\Downloads\test`, Python/Flask happily accesses your local filesystem because, well… it lives on your machine 💻. `os.path.isdir(folder)` succeeds because the folder actually exists where your computer can see it ✅.
 
 Now, if you try the same thing on Vercel (or any cloud server), things get… interesting 🤔. Your app is now running on a remote Linux server that has zero idea about your Windows paths. It can’t peek into `C:\Users\ullas\Downloads\test` because that folder is on your PC, not theirs 🚫.
