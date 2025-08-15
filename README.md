@@ -5,6 +5,20 @@ It remembers recent folders and the last file you opened… because we all forge
 
 Might add more features someday… maybe, or not.
 
+### LocVi Demo Gallery
+
+| Screenshot 1 | Screenshot 2 | Screenshot 3 |
+|--------------|--------------|--------------|
+| ![Screenshot 1](https://github.com/user-attachments/assets/93170fd6-b96b-4e12-baac-1145957b6c2d) | ![Screenshot 2](https://github.com/user-attachments/assets/a039a4d5-bde6-4589-83a2-feca6d4d0084) | ![Screenshot 3](https://github.com/user-attachments/assets/cd596236-e1d4-443c-a1bd-19126a53375c) |
+
+| Screenshot 4 | Screenshot 5 |
+|--------------|--------------|
+| ![Screenshot 4](https://github.com/user-attachments/assets/80f16c2e-0d87-488e-bd94-000fcdc381b0) | ![Screenshot 5](https://github.com/user-attachments/assets/4f016bf3-091d-4fdf-9163-04388e925c8e) |
+
+| Video Demo YouTube |
+|--------------------|
+|[![Video](https://img.youtube.com/vi/xjo8wX2ciJY/0.jpg)](https://youtu.be/xjo8wX2ciJY)|
+
 ---
 
 ### Why I Created It
