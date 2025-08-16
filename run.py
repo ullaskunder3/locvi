@@ -1,11 +1,25 @@
 import os
+import threading
 from app import create_app
+import webview
 
 app = create_app()
-# for development debug
-# app.config["DEBUG"] = False
+
+def start_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="127.0.0.1", port=port, threaded=True)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    print(f"Running on http://localhost:{port}")
-    app.run(host="0.0.0.0", port=port)
+
+    t = threading.Thread(target=start_flask, daemon=True)
+    t.start()
+
+    # Create a native window
+    webview.create_window(
+        "Local File Explorer",
+        "http://127.0.0.1:8080",
+        width=1200,
+        height=800,
+        confirm_close=True,
+    )
+    webview.start()

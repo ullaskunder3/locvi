@@ -33,17 +33,6 @@ def index():
         read_files=read_files
     )
 
-
-@main_bp.route("/manifest.json")
-def manifest():
-    path = os.path.join(os.path.dirname(__file__), "static", "manifest.json")
-    return send_file(path, mimetype="application/manifest+json")
-
-@main_bp.route("/sw.js")
-def service_worker():
-    path = os.path.join(os.path.dirname(__file__), "static", "sw.js")
-    return send_file(path, mimetype="application/javascript")
-
 @main_bp.route("/use_folder")
 def use_folder():
     global BASE_DIR

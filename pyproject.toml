@@ -1,0 +1,11 @@
+[project]
+name = "locvi"
+version = "0.1.0"
+description = "LocVi - Local File Explorer with offline support (Flask + pywebview)"
+authors = [{name="Ullas K", email="ullaskunder3@gmail.com"}]
+license = {text = "MIT"}
+readme = "README.md"
+dependencies = ["flask", "pywebview"]
+
+[tool.setuptools]
+packages = ["app"]
