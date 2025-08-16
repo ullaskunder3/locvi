@@ -21,3 +21,6 @@ build/
 
 # experiment folder content
 experiment
+
+# Secrets
+*.pfx
