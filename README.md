@@ -5,6 +5,20 @@ It remembers recent folders and the last file you opened… because we all forge
 
 Might add more features someday… maybe, or not 🤷‍♂️.
 
+### ⚠️ Windows “Unknown Publisher” Warning (for the EXE)
+
+Because LocVi is signed with a **self-signed certificate**, Windows might show a warning like:
+
+> “Windows protected your PC – Windows SmartScreen prevented an unrecognized app from starting.”
+
+**What to do:**
+
+1. Click **More Info**.
+2. Click **Run Anyway**.
+
+✅ LocVi is totally safe — it’s just self-signed.  
+💸 When my pockets are full, I’ll buy a proper certificate and make Windows stop complaining… until then, enjoy the warning pop-up and the app.
+
 ### ⚠️ Heads-Up on Cloud Deployment
 
 > ⚡ Working on PWA functionality — currently in `test` branch 🚧 `pwa/locvi`
