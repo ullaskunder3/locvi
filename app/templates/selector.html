@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <title>LocVi - Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='selector.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}?v={{ range(1, 1000000) | random }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='selector.css') }}?v={{ range(1, 1000000) | random }}">
 </head>
 <body>
   <div class="layout-container">
@@ -12,7 +12,7 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-icon">📚</div>
+        <div class="brand-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg></div>
         <div class="brand-text">
           <h1>LocVi</h1>
           <span>Study & Research</span>
@@ -30,7 +30,7 @@
 
         <form action="/set_folder" method="post" class="path-form">
           <input type="text" name="folder" id="folderInput" placeholder="/path/to/folder..." required>
-          <button type="submit" class="icon-btn">→</button>
+          <button type="submit" class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></button>
         </form>
       </div>
 
@@ -78,7 +78,7 @@
             
             {% if info.last_file %}
             <div class="workspace-footer">
-              <span class="last-read-icon">📖</span>
+              <span class="last-read-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>
               <span class="last-read-text">Last: <strong>{{ info.last_file.split('/')[-1] }}</strong></span>
             </div>
             {% endif %}
@@ -108,7 +108,11 @@
                 <div class="timeline-item">
                   <div class="timeline-time">{{ item.time }}</div>
                   <div class="timeline-status">
-                    {% if item.action == "completed" %}✅{% else %}📑{% endif %}
+                    {% if item.action == "completed" %}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    {% else %}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    {% endif %}
                   </div>
                   <div class="timeline-content">
                     <span class="timeline-file">{{ item.file.split('/')[-1] }}</span>

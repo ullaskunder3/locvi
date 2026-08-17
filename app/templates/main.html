@@ -4,22 +4,24 @@
 <head>
   <meta charset="utf-8" />
   <title>LocVi</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}?v={{ range(1, 1000000) | random }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}?v={{ range(1, 1000000) | random }}">
 </head>
 
 <body>
   <div id="sidebar">
     <div class="topbar-header">
-      <div class="flex" style="align-items:center;gap:6px;">
-        <a href="/change_folder" class="home-btn" title="Return to LocVi Dashboard">🏠 Home</a>
-        <button id="pinFolderBtn" class="pin-btn {% if is_pinned %}pinned{% endif %}" title="Pin/Unpin Workspace">
-          {% if is_pinned %}📌 Pinned{% else %}📍 Pin{% endif %}
+      <div class="header-actions">
+        <a href="/change_folder" class="btn" title="Return to LocVi Dashboard">
+          <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span> Home
+        </a>
+        <button id="pinFolderBtn" class="btn {% if is_pinned %}is-active{% endif %}" title="Pin/Unpin Workspace">
+          <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3h-0a3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg></span> {% if is_pinned %}Pinned{% else %}Pin{% endif %}
         </button>
       </div>
       <div class="sort-controls">
-        {% if sort_mode == "alpha" %}<b>A-Z</b> | <a href="/?sort=smart">Smart</a>
-        {% else %}<a href="/?sort=alpha">A-Z</a> | <b>Smart</b>{% endif %}
+        {% if sort_mode == "alpha" %}<b>A-Z</b> <span class="sort-divider">|</span> <a href="/?sort=smart">Smart</a>
+        {% else %}<a href="/?sort=alpha">A-Z</a> <span class="sort-divider">|</span> <b>Smart</b>{% endif %}
       </div>
     </div>
 
@@ -66,12 +68,13 @@
             });
             const data = await res.json();
             if (data.success) {
+              const svgPin = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 0 0-3-3h-0a3 3 0 0 0-3 3v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>';
               if (data.is_pinned) {
-                pinBtn.classList.add("pinned");
-                pinBtn.textContent = "📌 Pinned";
+                pinBtn.classList.add("is-active");
+                pinBtn.innerHTML = '<span class="btn-icon">' + svgPin + '</span> Pinned';
               } else {
-                pinBtn.classList.remove("pinned");
-                pinBtn.textContent = "📍 Pin";
+                pinBtn.classList.remove("is-active");
+                pinBtn.innerHTML = '<span class="btn-icon">' + svgPin + '</span> Pin';
               }
             }
           } catch (e) {
