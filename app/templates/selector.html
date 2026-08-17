@@ -1,75 +1,162 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8">
-  <title>LocVi</title>
+  <title>LocVi - Dashboard</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='root.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='selector.css') }}">
 </head>
+<body>
+  <div class="layout-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">📚</div>
+        <div class="brand-text">
+          <h1>LocVi</h1>
+          <span>Study & Research</span>
+        </div>
+      </div>
 
-<body class="container">
-  <div id="box">
-    <h3>Select Workspace Folder</h3>
+      <div class="action-section">
+        <button id="browseBtn" class="primary-btn">
+          <span>Open Workspace Folder</span>
+        </button>
+        
+        <div class="divider">
+          <span>or enter path</span>
+        </div>
 
-    <div class="browse-action-area">
-      <button id="browseBtn" type="button" class="btn-primary-large">
-        📁 Browse System Folder
-      </button>
-    </div>
+        <form action="/set_folder" method="post" class="path-form">
+          <input type="text" name="folder" id="folderInput" placeholder="/path/to/folder..." required>
+          <button type="submit" class="icon-btn">→</button>
+        </form>
+      </div>
 
-    {% if pinned_folders %}
-    <div class="folder-section">
-      <p class="section-title">📌 Pinned Folders:</p>
-      <ul class="folder-list">
-        {% for f in pinned_folders %}
-        <li><a href="/use_folder?folder={{ f|urlencode }}" class="folder-link">📌 {{ f }}</a></li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
+      <div class="stats-overview">
+        <div class="stat-header">Your Progress</div>
+        <div class="stat-main">
+          <span class="stat-number">{{ stats.total_completed }}</span>
+          <span class="stat-label">Files Read</span>
+        </div>
+        <div class="stat-sub">
+          Across {{ stats.workspaces|length }} active workspaces
+        </div>
+      </div>
+    </aside>
 
-    {% if recent_folders %}
-    <div class="folder-section">
-      <p class="section-title">🕒 Recent Folders:</p>
-      <ul class="folder-list">
-        {% for f in recent_folders %}
-        <li><a href="/use_folder?folder={{ f|urlencode }}" class="folder-link">📂 {{ f }}</a></li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
+    <!-- Main Content -->
+    <main class="main-content">
+      
+      <section class="content-section">
+        <header class="section-header">
+          <h2>Recent Workspaces</h2>
+          <p>Resume your reading and research</p>
+        </header>
+        
+        <div class="workspace-grid">
+          {% for f_key, info in stats.workspaces.items() %}
+          <div class="workspace-card">
+            <div class="workspace-header">
+              <div class="workspace-info">
+                <span class="workspace-name">{{ info.name }}</span>
+                <span class="workspace-path">{{ info.folder }}</span>
+              </div>
+              <a href="/use_folder?folder={{ info.folder|urlencode }}" class="open-link">Open</a>
+            </div>
+            
+            <div class="progress-container">
+              <div class="progress-labels">
+                <span>{{ info.completed }} of {{ info.total }} files</span>
+                <span class="progress-percent">{{ info.percent }}%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width: {{ info.percent }}%;"></div>
+              </div>
+            </div>
+            
+            {% if info.last_file %}
+            <div class="workspace-footer">
+              <span class="last-read-icon">📖</span>
+              <span class="last-read-text">Last: <strong>{{ info.last_file.split('/')[-1] }}</strong></span>
+            </div>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <p>No active workspaces.</p>
+            <span>Open a folder to start tracking your reading progress.</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
 
-    <hr>
-    <form action="/set_folder" method="post" class="manual-path-form">
-      <input type="text" name="folder" id="folderInput" placeholder="Or enter full folder path..." required>
-      <button type="submit" class="btn-secondary">Open</button>
-    </form>
+      <section class="content-section">
+        <header class="section-header">
+          <h2>Activity Log</h2>
+          <p>Recent files you've read or completed</p>
+        </header>
+
+        <div class="timeline">
+          {% if stats.daily_activity %}
+            {% for date, logs in stats.daily_activity.items() %}
+            <div class="timeline-day">
+              <div class="timeline-date">{{ date }}</div>
+              <div class="timeline-items">
+                {% for item in logs %}
+                <div class="timeline-item">
+                  <div class="timeline-time">{{ item.time }}</div>
+                  <div class="timeline-status">
+                    {% if item.action == "completed" %}✅{% else %}📑{% endif %}
+                  </div>
+                  <div class="timeline-content">
+                    <span class="timeline-file">{{ item.file.split('/')[-1] }}</span>
+                    <span class="timeline-action">marked as {{ item.action }} in {{ item.folder.split('/')[-1] }}</span>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state">
+              <p>No activity recorded today.</p>
+              <span>Check off files as you read them.</span>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+
+    </main>
   </div>
 
   <script>
-    document.getElementById("browseBtn")?.addEventListener("click", async () => {
-      try {
-        const res = await fetch("/browse_folder", { method: "POST" });
-        const data = await res.json();
-        if (data.success) {
-          window.location.href = "/";
-        } else {
-          // Fallback to HTML5 directory picker if native window dialog isn't available
-          if ('showDirectoryPicker' in window) {
-            const handle = await window.showDirectoryPicker();
-            if (handle && handle.name) {
-              alert("Selected: " + handle.name + "\n(For full path access, paste path below or use desktop app window)");
-            }
+    const browseBtn = document.getElementById("browseBtn");
+    const folderInput = document.getElementById("folderInput");
+
+    if (browseBtn) {
+      browseBtn.addEventListener("click", async () => {
+        try {
+          const res = await fetch("/browse_folder", { method: "POST" });
+          const data = await res.json();
+          if (data.success) {
+            window.location.href = "/";
           } else {
-            alert(data.message || "Please enter the folder path below.");
+            if ('showDirectoryPicker' in window) {
+              const handle = await window.showDirectoryPicker();
+              if (handle && handle.name) {
+                alert("Selected: " + handle.name + "\n(Please paste its full path in the input box below)");
+              }
+            } else {
+              alert(data.message || "Please enter the folder path manually.");
+            }
           }
+        } catch (err) {
+          console.error("Browse error:", err);
         }
-      } catch (err) {
-        console.error(err);
-      }
-    });
+      });
+    }
   </script>
 </body>
-
 </html>

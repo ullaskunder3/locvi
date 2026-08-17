@@ -7,18 +7,10 @@ app = create_app()
 
 def start_flask():
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="127.0.0.1", port=port, threaded=True)
+    # use_reloader=False prevents Werkzeug from trying to register signal handlers outside the main thread
+    app.run(host="127.0.0.1", port=port, threaded=True, debug=True, use_reloader=False)
 
 if __name__ == "__main__":
-    # Configure Qt WebEngine PDF Viewer settings on Linux before GUI launch
-    try:
-        from PySide6.QtWebEngineCore import QWebEngineSettings
-        settings = QWebEngineSettings.globalSettings()
-        settings.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
-        settings.setAttribute(QWebEngineSettings.WebAttribute.PdfViewerEnabled, True)
-    except Exception as e:
-        print("QtWebEngineSettings notice:", e)
-
     t = threading.Thread(target=start_flask, daemon=True)
     t.start()
 

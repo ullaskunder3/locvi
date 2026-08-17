@@ -6,6 +6,8 @@ from .helpers import (
     get_recent_folders, add_recent_folder,
     get_pinned_folders, toggle_pin_folder,
     set_last_open_file, get_last_open_file,
+    set_pdf_page_position, get_pdf_page_position,
+    get_dashboard_stats,
     build_tree,
     get_read_files, mark_file_read,
     get_mime_type
@@ -23,17 +25,26 @@ def index():
         return render_template(
             "selector.html",
             recent_folders=get_recent_folders(),
-            pinned_folders=pinned_folders
+            pinned_folders=pinned_folders,
+            stats=get_dashboard_stats()
         )
 
     sort_mode = request.args.get("sort", "alpha")
+    tree = build_tree(BASE_DIR, sort_mode)
     last_file = get_last_open_file(BASE_DIR)
+    
+    # Verify last_file actually exists in the current tree/folder
+    if last_file:
+        full_last = os.path.abspath(os.path.join(BASE_DIR, last_file))
+        if not os.path.exists(full_last):
+            last_file = None
+
     read_files = get_read_files(BASE_DIR)
     is_pinned = BASE_DIR in pinned_folders
 
     return render_template(
         "main.html",
-        tree=build_tree(BASE_DIR, sort_mode),
+        tree=tree,
         sort_mode=sort_mode,
         last_file=last_file,
         BASE_DIR=BASE_DIR,
@@ -57,7 +68,8 @@ def change_folder():
     return render_template(
         "selector.html",
         recent_folders=get_recent_folders(),
-        pinned_folders=get_pinned_folders()
+        pinned_folders=get_pinned_folders(),
+        stats=get_dashboard_stats()
     )
 
 @main_bp.route("/browse_folder", methods=["POST"])
@@ -121,7 +133,6 @@ def view():
     if ext in BLOCK_BINARY_EXTS:
         return "<div style='padding:20px;color:red;font-family:sans-serif;'>⚠ Cannot preview this file. Download instead.</div>"
 
-    # PDF Rendering (Instant Lazy Loading via QtPdf)
     if ext == ".pdf" or mime == "application/pdf":
         try:
             from PySide6.QtPdf import QPdfDocument
@@ -130,16 +141,18 @@ def view():
             total_pages = doc.pageCount()
             doc.close()
 
+            last_page = get_pdf_page_position(BASE_DIR, path)
+
             if total_pages > 0:
                 pages_imgs = []
                 for p in range(total_pages):
                     pages_imgs.append(f'''
-                    <div style="text-align:center;margin:16px 0;">
+                    <div id="pdf-page-wrapper-{p}" data-page="{p}" class="pdf-page-item" style="text-align:center;margin:16px 0;">
                         <img data-src="/pdf_page?path={path}&page={p}" 
-                             src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'600\' height=\'800\'><rect width=\'100%\' height=\'100%\' fill=\'%231e1e1e\'/><text x=\'50%\' y=\'50%\' fill=\'%23888\' font-size=\'20\' text-anchor=\'middle\'>Loading Page {p+1}...</text></svg>"
+                             src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'600\' height=\'800\'><rect width=\'100%\' height=\'100%\' fill=\'%23e0e0e0\'/><text x=\'50%\' y=\'50%\' fill=\'%23666\' font-size=\'20\' text-anchor=\'middle\'>Loading Page {p+1}...</text></svg>"
                              class="lazy-pdf-page" 
-                             style="width:90%;max-width:950px;min-height:400px;box-shadow:0 4px 12px rgba(0,0,0,0.4);border-radius:4px;display:block;margin:auto;" />
-                        <div style="color:#aaa;font-size:12px;margin-top:6px;font-family:sans-serif;">Page {p+1} of {total_pages}</div>
+                             style="width:90%;max-width:950px;min-height:400px;box-shadow:0 4px 12px rgba(0,0,0,0.25);border-radius:4px;display:block;margin:auto;" />
+                        <div style="color:#555;font-size:12px;margin-top:6px;font-family:sans-serif;font-weight:600;">Page {p+1} of {total_pages}</div>
                     </div>
                     ''')
 
@@ -149,20 +162,52 @@ def view():
                     {pages_html}
                 </div>
                 <script>
+                    const lastPage = {last_page};
+                    const filePath = "{path}";
+
                     const observer = new IntersectionObserver((entries) => {{
                         entries.forEach(entry => {{
                             if (entry.isIntersecting) {{
-                                const img = entry.target;
-                                if (img.dataset.src) {{
+                                const container = entry.target;
+                                const img = container.querySelector(".lazy-pdf-page");
+                                if (img && img.dataset.src) {{
                                     img.src = img.dataset.src;
                                     delete img.dataset.src;
                                 }}
-                                observer.unobserve(img);
+                                const pageNum = container.dataset.page;
+                                if (pageNum !== undefined) {{
+                                    savePdfPagePosition(filePath, pageNum);
+                                }}
                             }}
                         }});
                     }}, {{ rootMargin: "300px 0px" }});
 
-                    document.querySelectorAll(".lazy-pdf-page").forEach(img => observer.observe(img));
+                    document.querySelectorAll(".pdf-page-item").forEach(item => observer.observe(item));
+
+                    // Restore last read page position on load inside scroll container
+                    if (lastPage > 0) {{
+                        window.addEventListener("load", () => {{
+                            setTimeout(() => {{
+                                const targetPage = document.getElementById("pdf-page-wrapper-" + lastPage);
+                                const pdfContainer = document.getElementById("pdfContainer");
+                                if (targetPage && pdfContainer) {{
+                                    pdfContainer.scrollTop = targetPage.offsetTop - 20;
+                                }}
+                            }}, 100);
+                        }});
+                    }}
+
+                    let saveTimeout = null;
+                    function savePdfPagePosition(file, page) {{
+                        clearTimeout(saveTimeout);
+                        saveTimeout = setTimeout(() => {{
+                            fetch('/save_pdf_page', {{
+                                method: 'POST',
+                                headers: {{ 'Content-Type': 'application/json' }},
+                                body: JSON.stringify({{ file: file, page: parseInt(page) }})
+                            }}).catch(e => console.error(e));
+                        }}, 500);
+                    }}
                 </script>
                 '''
         except Exception as e:
@@ -292,3 +337,16 @@ def serve_pdf_page():
         print("Error serving PDF page:", e)
 
     abort(500, "Error rendering page")
+
+@main_bp.route("/save_pdf_page", methods=["POST"])
+def save_pdf_page():
+    global BASE_DIR
+    if not BASE_DIR:
+        return jsonify(success=False)
+    data = request.get_json() or {}
+    file_path = data.get("file")
+    page_num = data.get("page", 0)
+    if file_path:
+        set_pdf_page_position(BASE_DIR, file_path, page_num)
+        return jsonify(success=True)
+    return jsonify(success=False)

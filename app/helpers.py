@@ -85,6 +85,20 @@ def get_last_open_file(folder: str):
     cfg = load_config()
     return cfg.get("last_open_file", {}).get(os.path.abspath(folder))
 
+def set_pdf_page_position(folder: str, file_path: str, page_num: int):
+    cfg = load_config()
+    positions = cfg.get("pdf_positions", {})
+    key = f"{os.path.abspath(folder)}::{file_path}"
+    positions[key] = page_num
+    cfg["pdf_positions"] = positions
+    save_config(cfg)
+
+def get_pdf_page_position(folder: str, file_path: str) -> int:
+    cfg = load_config()
+    positions = cfg.get("pdf_positions", {})
+    key = f"{os.path.abspath(folder)}::{file_path}"
+    return positions.get(key, 0)
+
 # ---------- Sorting ----------
 def sort_key(name: str):
     m = re.match(r'^(\d+)', name)
@@ -125,10 +139,64 @@ def mark_file_read(folder: str, file_path: str, read: bool):
         read_files.discard(file_path)
     cfg.setdefault("read_files", {})[folder_key] = sorted(read_files) 
     save_config(cfg)
-
+    log_daily_activity(folder_key, file_path, "completed" if read else "uncompleted")
 
 def get_read_files(folder: str):
     folder_key = os.path.abspath(folder).replace("\\", "/")   # normalize folder
     cfg = load_config()
     stored = cfg.get("read_files", {}).get(folder_key, [])
     return set(p.replace("\\", "/") for p in stored)          # normalize stored file paths
+
+def log_daily_activity(folder: str, file_path: str, action: str):
+    cfg = load_config()
+    activity = cfg.get("daily_activity", {})
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_log = activity.get(today, [])
+    entry = {
+        "time": datetime.now().strftime("%H:%M"),
+        "folder": folder,
+        "file": file_path,
+        "action": action
+    }
+    today_log.insert(0, entry)
+    activity[today] = today_log[:15]
+    cfg["daily_activity"] = activity
+    save_config(cfg)
+
+def get_dashboard_stats():
+    cfg = load_config()
+    read_map = cfg.get("read_files", {})
+    last_files = cfg.get("last_open_file", {})
+    activity_map = cfg.get("daily_activity", {})
+    
+    total_completed = sum(len(files) for files in read_map.values())
+    
+    # Calculate progress for recent/pinned workspaces
+    workspaces_progress = {}
+    for folder in get_recent_folders() + get_pinned_folders():
+        folder_key = os.path.abspath(folder).replace("\\", "/")
+        if folder_key in workspaces_progress:
+            continue
+        try:
+            tree = build_tree(folder_key)
+            all_files = [f for files in tree.values() for f in files]
+            total = len(all_files)
+            completed_set = get_read_files(folder_key)
+            done_count = len([f for f in all_files if f in completed_set or any(f.endswith(x) for x in completed_set)])
+            last_file = last_files.get(folder_key) or last_files.get(folder)
+            workspaces_progress[folder_key] = {
+                "folder": folder_key,
+                "name": os.path.basename(folder_key) or folder_key,
+                "total": total,
+                "completed": min(done_count, total),
+                "percent": int((min(done_count, total) / total * 100)) if total > 0 else 0,
+                "last_file": last_file
+            }
+        except Exception:
+            pass
+
+    return {
+        "total_completed": total_completed,
+        "workspaces": workspaces_progress,
+        "daily_activity": activity_map
+    }
