@@ -6,12 +6,14 @@ It remembers recent folders and the last file you opened… because we all forge
 ## 🚀 Quick Start / Local Setup
 
 ### Option 1: Modern & Fast (Recommended with `uv`)
+> **Note:** If you don't have `uv` installed, install it first via `pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh` (or press `y` if prompted by your system package manager).
+
 ```bash
 # Clone the repository
 git clone https://github.com/ullaskunder3/locvi.git
 cd locvi
 
-# Sync virtual environment & install dependencies automatically
+# Create virtual environment & sync all dependencies automatically
 uv sync
 
 # Run the app
