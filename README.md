@@ -79,7 +79,7 @@ Enjoy poking around your files 📁, watching videos 🎥, and marking things as
 
 | Screenshot 1                                                                                     | Screenshot 2                                                                                     | Screenshot 3                                                                                     |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| ![Screenshot 1](https://github.com/user-attachments/assets/93170fd6-b96b-4e12-baac-1145957b6c2d) | ![Screenshot 2](https://github.com/user-attachments/assets/a039a4d5-bde6-4589-83a2-feca6d4d0084) | ![Screenshot 3](https://github.com/user-attachments/assets/cd596236-e1d4-443c-a1bd-19126a53375c) |
+| ![Screenshot 1](https://github.com/user-attachments/assets/d1508a01-f13d-4a62-ad1a-6bda4e1ea187") | ![Screenshot 2](https://github.com/user-attachments/assets/a039a4d5-bde6-4589-83a2-feca6d4d0084) | ![Screenshot 3](https://github.com/user-attachments/assets/cd596236-e1d4-443c-a1bd-19126a53375c) |
 
 | Screenshot 4                                                                                     | Screenshot 5                                                                                     |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
