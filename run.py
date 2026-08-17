@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     # Create a native window
     webview.create_window(
-        "Local File Explorer",
+        "LocVi",
         "http://127.0.0.1:8080",
         width=1200,
         height=800,

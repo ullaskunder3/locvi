@@ -134,86 +134,108 @@ def view():
         return "<div style='padding:20px;color:red;font-family:sans-serif;'>⚠ Cannot preview this file. Download instead.</div>"
 
     if ext == ".pdf" or mime == "application/pdf":
-        try:
-            from PySide6.QtPdf import QPdfDocument
-            doc = QPdfDocument()
-            doc.load(abs_path)
-            total_pages = doc.pageCount()
-            doc.close()
+        import urllib.parse
+        last_page = get_pdf_page_position(BASE_DIR, path)
+        pdfjs_url = url_for('static', filename='pdfjs/web/viewer.html')
+        file_url = url_for('main_bp.serve_file', path=path)
+        encoded_file_url = urllib.parse.quote(file_url)
+        
+        # PDF.js uses 1-based page numbers
+        page_hash = f"#page={last_page + 1}&pagemode=none" if last_page >= 0 else "#pagemode=none"
+        viewer_src = f"{pdfjs_url}?file={encoded_file_url}{page_hash}"
+        
+        return f'''
+        <iframe id="pdfjs-iframe" src="{viewer_src}" style="width:100%;height:100%;border:none;display:block;"></iframe>
+        <script>
+            const iframe = document.getElementById('pdfjs-iframe');
+            iframe.onload = function() {{
+                const pdfWindow = iframe.contentWindow;
+                const pdfDoc = pdfWindow.document;
 
-            last_page = get_pdf_page_position(BASE_DIR, path)
-
-            if total_pages > 0:
-                pages_imgs = []
-                for p in range(total_pages):
-                    pages_imgs.append(f'''
-                    <div id="pdf-page-wrapper-{p}" data-page="{p}" class="pdf-page-item" style="text-align:center;margin:16px 0;">
-                        <img data-src="/pdf_page?path={path}&page={p}" 
-                             src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'600\' height=\'800\'><rect width=\'100%\' height=\'100%\' fill=\'%23e0e0e0\'/><text x=\'50%\' y=\'50%\' fill=\'%23666\' font-size=\'20\' text-anchor=\'middle\'>Loading Page {p+1}...</text></svg>"
-                             class="lazy-pdf-page" 
-                             style="width:90%;max-width:950px;min-height:400px;box-shadow:0 4px 12px rgba(0,0,0,0.25);border-radius:4px;display:block;margin:auto;" />
-                        <div style="color:#555;font-size:12px;margin-top:6px;font-family:sans-serif;font-weight:600;">Page {p+1} of {total_pages}</div>
-                    </div>
-                    ''')
-
-                pages_html = "".join(pages_imgs)
-                return f'''
-                <div id="pdfContainer" style="background:#e0e0e0;height:100vh;overflow-y:auto;padding:20px 0;box-sizing:border-box;">
-                    {pages_html}
-                </div>
-                <script>
-                    const lastPage = {last_page};
-                    const filePath = "{path}";
-
-                    const observer = new IntersectionObserver((entries) => {{
-                        entries.forEach(entry => {{
-                            if (entry.isIntersecting) {{
-                                const container = entry.target;
-                                const img = container.querySelector(".lazy-pdf-page");
-                                if (img && img.dataset.src) {{
-                                    img.src = img.dataset.src;
-                                    delete img.dataset.src;
-                                }}
-                                const pageNum = container.dataset.page;
-                                if (pageNum !== undefined) {{
-                                    savePdfPagePosition(filePath, pageNum);
-                                }}
-                            }}
-                        }});
-                    }}, {{ rootMargin: "300px 0px" }});
-
-                    document.querySelectorAll(".pdf-page-item").forEach(item => observer.observe(item));
-
-                    // Restore last read page position on load inside scroll container
-                    if (lastPage > 0) {{
-                        window.addEventListener("load", () => {{
-                            setTimeout(() => {{
-                                const targetPage = document.getElementById("pdf-page-wrapper-" + lastPage);
-                                const pdfContainer = document.getElementById("pdfContainer");
-                                if (targetPage && pdfContainer) {{
-                                    pdfContainer.scrollTop = targetPage.offsetTop - 20;
-                                }}
-                            }}, 100);
-                        }});
+                // 1. Hide the default PDF.js toolbar and make the viewer full screen
+                const style = pdfDoc.createElement('style');
+                style.textContent = `
+                    .toolbar {{ display: none !important; }}
+                    #viewerContainer {{ top: 0 !important; height: 100% !important; }}
+                    
+                    /* Custom popup menu styling */
+                    #locvi-popup {{
+                        position: fixed;
+                        background: #111;
+                        color: #fff;
+                        padding: 6px;
+                        border-radius: 6px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        display: none;
+                        z-index: 99999;
+                        font-family: sans-serif;
+                        font-size: 13px;
+                        gap: 4px;
                     }}
+                    #locvi-popup button {{
+                        background: transparent;
+                        border: none;
+                        color: #fff;
+                        cursor: pointer;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                    }}
+                    #locvi-popup button:hover {{ background: #333; }}
+                `;
+                pdfDoc.head.appendChild(style);
 
-                    let saveTimeout = null;
-                    function savePdfPagePosition(file, page) {{
-                        clearTimeout(saveTimeout);
-                        saveTimeout = setTimeout(() => {{
+                // 2. Create the custom popup menu
+                const popup = pdfDoc.createElement('div');
+                popup.id = 'locvi-popup';
+                popup.innerHTML = `
+                    <button id="btn-highlight" title="Highlight">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </button>
+                    <button id="btn-underline" title="Underline">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><line x1="4" y1="21" x2="20" y2="21"></line></svg>
+                    </button>
+                    <button id="btn-note" title="Add Note">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    </button>
+                `;
+                pdfDoc.body.appendChild(popup);
+
+                // 3. Listen for text selection to show the popup
+                pdfDoc.addEventListener('mouseup', function(e) {{
+                    const selection = pdfWindow.getSelection();
+                    if (selection && !selection.isCollapsed && selection.toString().trim().length > 0) {{
+                        popup.style.display = 'flex';
+                        popup.style.left = e.clientX + 'px';
+                        popup.style.top = (e.clientY - 40) + 'px'; // Show slightly above mouse
+                    }} else {{
+                        if (e.target.closest('#locvi-popup') == null) {{
+                            popup.style.display = 'none';
+                        }}
+                    }}
+                }});
+
+                popup.querySelector('#btn-highlight').addEventListener('click', () => {{
+                    alert("Highlight tool clicked! (Backend integration coming next)");
+                    popup.style.display = 'none';
+                }});
+
+                // Wait for PDFViewerApplication to be ready to track pages
+                const checkReady = setInterval(() => {{
+                    if (pdfWindow && pdfWindow.PDFViewerApplication && pdfWindow.PDFViewerApplication.eventBus) {{
+                        clearInterval(checkReady);
+                        pdfWindow.PDFViewerApplication.eventBus.on('pagechanging', function(evt) {{
+                            const pageNum = evt.pageNumber - 1; // 0-based for our backend
                             fetch('/save_pdf_page', {{
                                 method: 'POST',
                                 headers: {{ 'Content-Type': 'application/json' }},
-                                body: JSON.stringify({{ file: file, page: parseInt(page) }})
+                                body: JSON.stringify({{ file: "{path}", page: pageNum }})
                             }}).catch(e => console.error(e));
-                        }}, 500);
+                        }});
                     }}
-                </script>
-                '''
-        except Exception as e:
-            print("QtPdf setup error:", e)
-
-        return f'<iframe src="/file?path={path}" style="width:100%;height:100%;border:none;"></iframe>'
+                }}, 500);
+            }};
+        </script>
+        '''
 
     # SVG
     if ext == ".svg" or (mime and mime == "image/svg+xml"):

@@ -30,3 +30,5 @@ experiment
 *.log
 .DS_Store
 Thumbs.db
+# Planning
+plan/
