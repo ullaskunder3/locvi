@@ -17,7 +17,12 @@
         | <b>Smart</b>
         {% endif %}
       </div>
-      <div><a class="small" href="/change_folder">Change folder</a></div>
+      <div>
+        <button id="pinFolderBtn" class="pin-btn {% if is_pinned %}pinned{% endif %}" title="Pin/Unpin Folder">
+          {% if is_pinned %}📌 Pinned{% else %}📍 Pin{% endif %}
+        </button>
+        <a class="small" href="/change_folder">Change folder</a>
+      </div>
     </div>
 
     <div class="topbar">
@@ -51,6 +56,31 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+      const pinBtn = document.getElementById("pinFolderBtn");
+      if (pinBtn) {
+        pinBtn.addEventListener("click", async () => {
+          try {
+            const res = await fetch("/toggle_pin", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ folder: "{{ BASE_DIR }}" })
+            });
+            const data = await res.json();
+            if (data.success) {
+              if (data.is_pinned) {
+                pinBtn.classList.add("pinned");
+                pinBtn.textContent = "📌 Pinned";
+              } else {
+                pinBtn.classList.remove("pinned");
+                pinBtn.textContent = "📍 Pin";
+              }
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        });
+      }
+
       document.querySelectorAll(".read-checkbox").forEach(cb => {
         cb.addEventListener("change", async () => {
           const folder = cb.dataset.folder;

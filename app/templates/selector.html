@@ -10,22 +10,66 @@
 
 <body class="container">
   <div id="box">
-    <h3>Select the folder containing your files</h3>
-    {% if recent_folders %}
-    <p class="small">Recent folders:</p>
-    <ul>
-      {% for f in recent_folders %}
-      <li><a href="/use_folder?folder={{ f|urlencode }}">{{ f }}</a></li>
-      {% endfor %}
-    </ul>
-    <hr>
+    <h3>Select Workspace Folder</h3>
+
+    <div class="browse-action-area">
+      <button id="browseBtn" type="button" class="btn-primary-large">
+        📁 Browse System Folder
+      </button>
+    </div>
+
+    {% if pinned_folders %}
+    <div class="folder-section">
+      <p class="section-title">📌 Pinned Folders:</p>
+      <ul class="folder-list">
+        {% for f in pinned_folders %}
+        <li><a href="/use_folder?folder={{ f|urlencode }}" class="folder-link">📌 {{ f }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
     {% endif %}
-    <form action="/set_folder" method="post">
-      <input type="text" name="folder" placeholder="Enter full path" style="width:100%" required>
-      <button type="submit">Open</button>
+
+    {% if recent_folders %}
+    <div class="folder-section">
+      <p class="section-title">🕒 Recent Folders:</p>
+      <ul class="folder-list">
+        {% for f in recent_folders %}
+        <li><a href="/use_folder?folder={{ f|urlencode }}" class="folder-link">📂 {{ f }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <hr>
+    <form action="/set_folder" method="post" class="manual-path-form">
+      <input type="text" name="folder" id="folderInput" placeholder="Or enter full folder path..." required>
+      <button type="submit" class="btn-secondary">Open</button>
     </form>
-    <p class="small">Tip: copy & paste the path from your file explorer.</p>
   </div>
+
+  <script>
+    document.getElementById("browseBtn")?.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/browse_folder", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          window.location.href = "/";
+        } else {
+          // Fallback to HTML5 directory picker if native window dialog isn't available
+          if ('showDirectoryPicker' in window) {
+            const handle = await window.showDirectoryPicker();
+            if (handle && handle.name) {
+              alert("Selected: " + handle.name + "\n(For full path access, paste path below or use desktop app window)");
+            }
+          } else {
+            alert(data.message || "Please enter the folder path below.");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  </script>
 </body>
 
 </html>

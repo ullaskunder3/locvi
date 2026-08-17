@@ -4,6 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, send_f
 from .helpers import (
     BLOCK_BINARY_EXTS,
     get_recent_folders, add_recent_folder,
+    get_pinned_folders, toggle_pin_folder,
     set_last_open_file, get_last_open_file,
     build_tree,
     get_read_files, mark_file_read,
@@ -17,12 +18,18 @@ BASE_DIR = None
 @main_bp.route("/")
 def index():
     global BASE_DIR
+    pinned_folders = get_pinned_folders()
     if not BASE_DIR:
-        return render_template("selector.html", recent_folders=get_recent_folders())
+        return render_template(
+            "selector.html",
+            recent_folders=get_recent_folders(),
+            pinned_folders=pinned_folders
+        )
 
     sort_mode = request.args.get("sort", "alpha")
     last_file = get_last_open_file(BASE_DIR)
     read_files = get_read_files(BASE_DIR)
+    is_pinned = BASE_DIR in pinned_folders
 
     return render_template(
         "main.html",
@@ -30,7 +37,9 @@ def index():
         sort_mode=sort_mode,
         last_file=last_file,
         BASE_DIR=BASE_DIR,
-        read_files=read_files
+        read_files=read_files,
+        is_pinned=is_pinned,
+        pinned_folders=pinned_folders
     )
 
 @main_bp.route("/use_folder")
@@ -45,7 +54,36 @@ def use_folder():
 
 @main_bp.route("/change_folder")
 def change_folder():
-    return render_template("selector.html", recent_folders=get_recent_folders())
+    return render_template(
+        "selector.html",
+        recent_folders=get_recent_folders(),
+        pinned_folders=get_pinned_folders()
+    )
+
+@main_bp.route("/browse_folder", methods=["POST"])
+def browse_folder():
+    global BASE_DIR
+    try:
+        import webview
+        if webview.windows:
+            window = webview.windows[0]
+            selected = window.create_file_dialog(webview.FOLDER_DIALOG)
+            if selected and len(selected) > 0 and os.path.isdir(selected[0]):
+                BASE_DIR = os.path.abspath(selected[0])
+                add_recent_folder(BASE_DIR)
+                return jsonify({"success": True, "folder": BASE_DIR})
+    except Exception as e:
+        pass
+    return jsonify({"success": False, "message": "Could not open native folder picker."})
+
+@main_bp.route("/toggle_pin", methods=["POST"])
+def toggle_pin():
+    data = request.json or {}
+    folder = data.get("folder")
+    if folder and os.path.isdir(folder):
+        is_pinned = toggle_pin_folder(folder)
+        return jsonify({"success": True, "is_pinned": is_pinned})
+    return jsonify({"success": False}), 400
 
 @main_bp.route("/set_folder", methods=["POST"])
 def set_folder():

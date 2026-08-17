@@ -70,12 +70,82 @@ button {
     color: white;
     border: none;
     border-radius: 6px;
-    border-top-left-radius: 0px;
-    border-bottom-left-radius: 0px;
     cursor: pointer;
     font-size: 14px;
 }
 
 button:hover {
     background: #0056b3;
+}
+
+.browse-action-area {
+    margin: 20px 0;
+}
+
+.btn-primary-large {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 8px;
+    background: #0d6efd;
+    box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
+    transition: all 0.2s ease;
+}
+
+.btn-primary-large:hover {
+    background: #0b5ed7;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px rgba(13, 110, 253, 0.3);
+}
+
+.folder-section {
+    text-align: left;
+    margin-top: 16px;
+}
+
+.section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 6px;
+}
+
+.folder-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.folder-list li {
+    margin-bottom: 6px;
+}
+
+.folder-link {
+    display: block;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    color: #212529;
+    text-decoration: none;
+    font-size: 13px;
+    word-break: break-all;
+    transition: background 0.15s ease;
+}
+
+.folder-link:hover {
+    background: #e9ecef;
+    color: #0d6efd;
+}
+
+.manual-path-form {
+    margin-top: 16px;
+    display: flex;
+    gap: 0;
+}
+
+.btn-secondary {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
 }

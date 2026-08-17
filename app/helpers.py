@@ -39,7 +39,26 @@ def save_config(cfg: dict):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
 
-# ---------- Recent folders ----------
+# ---------- Pinned & Recent folders ----------
+def get_pinned_folders():
+    cfg = load_config()
+    folders = cfg.get("pinned_folders", [])
+    return [f for f in folders if os.path.isdir(f)]
+
+def toggle_pin_folder(path: str) -> bool:
+    path = os.path.abspath(path)
+    cfg = load_config()
+    pinned = cfg.get("pinned_folders", [])
+    if path in pinned:
+        pinned.remove(path)
+        is_pinned = False
+    else:
+        pinned.append(path)
+        is_pinned = True
+    cfg["pinned_folders"] = pinned
+    save_config(cfg)
+    return is_pinned
+
 def get_recent_folders():
     cfg = load_config()
     folders = cfg.get("recent_folders", [])
@@ -52,7 +71,7 @@ def add_recent_folder(path: str):
     if path in folders:
         folders.remove(path)
     folders.insert(0, path)
-    cfg["recent_folders"] = folders[:3]
+    cfg["recent_folders"] = folders[:5]
     save_config(cfg)
 
 def set_last_open_file(folder: str, file_path: str):
