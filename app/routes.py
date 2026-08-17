@@ -121,8 +121,53 @@ def view():
     if ext in BLOCK_BINARY_EXTS:
         return "<div style='padding:20px;color:red;font-family:sans-serif;'>⚠ Cannot preview this file. Download instead.</div>"
 
-    # PDF
+    # PDF Rendering (Instant Lazy Loading via QtPdf)
     if ext == ".pdf" or mime == "application/pdf":
+        try:
+            from PySide6.QtPdf import QPdfDocument
+            doc = QPdfDocument()
+            doc.load(abs_path)
+            total_pages = doc.pageCount()
+            doc.close()
+
+            if total_pages > 0:
+                pages_imgs = []
+                for p in range(total_pages):
+                    pages_imgs.append(f'''
+                    <div style="text-align:center;margin:16px 0;">
+                        <img data-src="/pdf_page?path={path}&page={p}" 
+                             src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'600\' height=\'800\'><rect width=\'100%\' height=\'100%\' fill=\'%231e1e1e\'/><text x=\'50%\' y=\'50%\' fill=\'%23888\' font-size=\'20\' text-anchor=\'middle\'>Loading Page {p+1}...</text></svg>"
+                             class="lazy-pdf-page" 
+                             style="width:90%;max-width:950px;min-height:400px;box-shadow:0 4px 12px rgba(0,0,0,0.4);border-radius:4px;display:block;margin:auto;" />
+                        <div style="color:#aaa;font-size:12px;margin-top:6px;font-family:sans-serif;">Page {p+1} of {total_pages}</div>
+                    </div>
+                    ''')
+
+                pages_html = "".join(pages_imgs)
+                return f'''
+                <div id="pdfContainer" style="background:#e0e0e0;height:100vh;overflow-y:auto;padding:20px 0;box-sizing:border-box;">
+                    {pages_html}
+                </div>
+                <script>
+                    const observer = new IntersectionObserver((entries) => {{
+                        entries.forEach(entry => {{
+                            if (entry.isIntersecting) {{
+                                const img = entry.target;
+                                if (img.dataset.src) {{
+                                    img.src = img.dataset.src;
+                                    delete img.dataset.src;
+                                }}
+                                observer.unobserve(img);
+                            }}
+                        }});
+                    }}, {{ rootMargin: "300px 0px" }});
+
+                    document.querySelectorAll(".lazy-pdf-page").forEach(img => observer.observe(img));
+                </script>
+                '''
+        except Exception as e:
+            print("QtPdf setup error:", e)
+
         return f'<iframe src="/file?path={path}" style="width:100%;height:100%;border:none;"></iframe>'
 
     # SVG
@@ -197,3 +242,53 @@ def serve_file():
     if not os.path.exists(abs_path):
         abort(404, "File not found")
     return send_file(abs_path)
+
+@main_bp.route("/pdf_page")
+def serve_pdf_page():
+    global BASE_DIR
+    if not BASE_DIR:
+        abort(400, "No workspace folder selected")
+    path = request.args.get("path", "")
+    page_num = int(request.args.get("page", 0))
+    abs_path = os.path.abspath(os.path.join(BASE_DIR, path))
+
+    if not abs_path.startswith(BASE_DIR) or not os.path.exists(abs_path):
+        abort(404, "PDF file not found")
+
+    try:
+        from PySide6.QtPdf import QPdfDocument
+        from PySide6.QtCore import QSize, QBuffer, QIODevice
+        import io
+
+        doc = QPdfDocument()
+        doc.load(abs_path)
+        if 0 <= page_num < doc.pageCount():
+            page_size = doc.pagePointSize(page_num)
+            width = int(page_size.width() * 1.5)
+            height = int(page_size.height() * 1.5)
+            img = doc.render(page_num, QSize(width, height))
+            doc.close()
+
+            # Ensure pure white background behind PDF page rendering (prevent transparency blending)
+            from PySide6.QtGui import QImage, QPainter, QColor
+            canvas = QImage(img.size(), QImage.Format_ARGB32)
+            canvas.fill(QColor(255, 255, 255))
+            painter = QPainter(canvas)
+            painter.drawImage(0, 0, img)
+            painter.end()
+
+            buffer = QBuffer()
+            buffer.open(QIODevice.WriteOnly)
+            canvas.save(buffer, "PNG")
+            img_bytes = buffer.data().data()
+            buffer.close()
+
+            return send_file(
+                io.BytesIO(img_bytes),
+                mimetype="image/png"
+            )
+        doc.close()
+    except Exception as e:
+        print("Error serving PDF page:", e)
+
+    abort(500, "Error rendering page")
