@@ -14,7 +14,7 @@ if __name__ == "__main__":
     t = threading.Thread(target=start_flask, daemon=True)
     t.start()
 
-    # Create a native window
+    # Create a native window with developer tools & shortcuts enabled
     webview.create_window(
         "Local File Explorer",
         "http://127.0.0.1:8080",
@@ -22,4 +22,5 @@ if __name__ == "__main__":
         height=800,
         confirm_close=True,
     )
-    webview.start()
+    # debug=True enables Right-Click -> Inspect Element / Reload & F5 / Ctrl+R keyboard shortcuts
+    webview.start(debug=True)
