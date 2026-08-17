@@ -3,7 +3,35 @@
 LocVi is a lightweight Flask-based local file browser that lets you poke around your files 📂, watch videos 🎬, listen to audio 🎧, and view images 🖼️ without losing your mind.
 It remembers recent folders and the last file you opened… because we all forget stuff 😅.
 
-Might add more features someday… maybe, or not 🤷‍♂️.
+## 🚀 Quick Start / Local Setup
+
+### Option 1: Modern & Fast (Recommended with `uv`)
+```bash
+# Clone the repository
+git clone https://github.com/ullaskunder3/locvi.git
+cd locvi
+
+# Sync virtual environment & install dependencies automatically
+uv sync
+
+# Run the app
+uv run python run.py
+```
+
+### Option 2: Standard Python (`venv` + `pip`)
+```bash
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+
+# Install dependencies (automatically handles Windows / Linux GUI packages)
+pip install -r requirements.txt
+
+# Run the app
+python run.py
+```
+
+---
 
 ### ⚠️ Windows “Unknown Publisher” Warning (for the EXE)
 
@@ -32,9 +60,13 @@ Result: `os.path.isdir(folder)` returns `False` and you get the cheerful message
 So yeah — for now, if you want to try LocVi, just **clone or fork this repo locally** and run:
 
 ```bash
+# Modern approach (using uv)
+uv sync
+uv run python run.py
+
+# Traditional approach (pip)
+pip install -r requirements.txt
 python run.py
-# or
-py run.py
 ```
 
 Enjoy poking around your files 📁, watching videos 🎥, and marking things as “done” ✅ — all without a cloud server judging your folder structure 😎.

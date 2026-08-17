@@ -5,7 +5,15 @@ description = "LocVi - Local File Explorer with offline support (Flask + pywebvi
 authors = [{name="Ullas K", email="ullaskunder3@gmail.com"}]
 license = {text = "MIT"}
 readme = "README.md"
-dependencies = ["flask", "pywebview"]
+requires-python = ">=3.9"
+dependencies = [
+    "flask",
+    "pywebview",
+    "appdirs",
+    "pyinstaller",
+    "PySide6; sys_platform == 'linux'",
+    "QtPy; sys_platform == 'linux'",
+]
 
 [tool.setuptools]
 packages = ["app"]

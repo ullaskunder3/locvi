@@ -2,3 +2,5 @@ Flask
 appdirs
 pywebview
 pyinstaller
+PySide6; sys_platform == 'linux'
+QtPy; sys_platform == 'linux'

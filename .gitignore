@@ -24,3 +24,9 @@ experiment
 
 # Secrets
 *.pfx
+
+# Tooling and caches
+.uv/
+*.log
+.DS_Store
+Thumbs.db
